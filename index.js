@@ -7,6 +7,7 @@ mongoose.set('strictQuery' ,false)
 mongoose.connect(config.connectionString)
 
 const User = require("./models/user.model.js");
+const Note = require("./models/note.model.js");
 
 const express = require("express");
 const cors = require("cors");
@@ -63,7 +64,7 @@ app.post("/create-account" , async(req, res)=>{
     await user.save();
 
     const accessToken = jwt.sign({user}, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn:"36000m",
+        expiresIn:'24h',
     });
 
     return res.json({error:false,user,accessToken, message: "user has created successfully"});
@@ -88,7 +89,7 @@ app.post("/login", async (req,res) => {
     if(userInfo.email ===email , userInfo.password ===password){
         const user = {user : userInfo};
         const accessToken = jwt.sign(user , process.env.ACCESS_TOKEN_SECRET,{
-            expiresIn:"36000",
+            expiresIn:'24h',
         });
         return res.json({error:false , message:"Login successful" , email , accessToken})
     }
@@ -97,8 +98,37 @@ app.post("/login", async (req,res) => {
     }
 });
 
-app.post("/add-note", async (req,res) => {
+app.post("/add-note", authenticateToken, async (req,res) => {
+    const {title , content, tags} = req.body;
+    const {user} = req.user;
 
+    if(!title){
+        return res.status(400).json({error:true , message:"Title is required"});
+    }
+    if(!content){
+        return res.status(400).json({error:true , message:"Content is required"});
+    }
+    
+    try{
+        const note = new Note({
+            title,
+            content,
+            tags:tags || [],
+            userId : user._id,
+        });
+        await note.save();  
+
+
+        return res.status(201).json({
+        
+            error:false,
+            note,
+            message:"Note added successfully"
+        });
+    }catch(error){
+        return res.status(500).json({message:"Internal Server Error"})
+    }
+    
     
 });
 
